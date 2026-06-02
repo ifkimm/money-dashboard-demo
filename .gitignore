@@ -1,0 +1,7 @@
+marketing_env/
+__pycache__/
+*.pyc
+.DS_Store
+*.log
+.streamlit/
+named-container-497909-j5-7d2de8bee7ef.json
