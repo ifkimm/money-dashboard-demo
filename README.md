@@ -1,4 +1,4 @@
-# 💰 내가 필요해서 만든 가계부 대시보드
+# 💰 커스텀 가계부 대시보드
 
 기존 가계부 앱들이 개인적인 소비 패턴이나 자산 관리 방식에 맞지 않아, **Streamlit**을 이용해 필요한 기능만 직접 구현한 개인 가계부 대시보드 프로젝트입니다.
 
@@ -34,7 +34,7 @@ Streamlit은 데이터 추가/삭제 직후 `st.rerun()`이 돌면 성공 알림
 ## 💻 실행 방법
 
 ### 1. 저장소 복사 및 이동
-`git clone [https://github.com/사용자이름/money-dashboard-demo.git](https://github.com/사용자이름/money-dashboard-demo.git)`
+`git clone [https://github.com/ifkimm/money-dashboard-demo.git](https://github.com/ifimm/money-dashboard-demo.git)`
 `cd money-dashboard-demo`
 
 ### 2. 가상환경 세팅 및 패키지 설치
