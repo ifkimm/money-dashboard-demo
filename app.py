@@ -314,7 +314,7 @@ def save_settings(settings_data):
         st.error(f"로컬 파일 저장 실패: {e}")
 
 # CSV 데이터 로드 함수 (구글 스프레드시트 우선 로드 및 로컬 백업)
-@st.cache_data
+@st.cache_data(ttl=3600)
 def load_data():
     file_path = "expense_data.csv"
     
@@ -322,12 +322,15 @@ def load_data():
     conn = get_gsheets_connection()
     if conn:
         try:
-            df = conn.read(worksheet="Transactions", ttl="1h")
+            # ttl=0 to avoid the connection's internal cache and let @st.cache_data handle caching.
+            df = conn.read(worksheet="Transactions", ttl=0)
             if df is not None and not df.empty:
                 # 데이터 타입 및 날짜 포맷팅 검증
                 df['Date'] = pd.to_datetime(df['Date'], format='%Y-%m-%d', errors='coerce')
                 df = df.dropna(subset=['Date'])
-                df = df.sort_values(by='Date').reset_index(drop=True)
+                
+                # 날짜 오름차순 정렬 (동일 날짜는 입력 순서 유지)
+                df = df.sort_values(by='Date', kind='stable').reset_index(drop=True)
                 
                 # 로컬 CSV 파일에 백업 저장
                 df_to_save = df.copy()
@@ -353,7 +356,8 @@ def load_data():
         df = pd.read_csv(file_path)
         df['Date'] = pd.to_datetime(df['Date'], format='%Y-%m-%d', errors='coerce')
         df = df.dropna(subset=['Date'])
-        df = df.sort_values(by='Date').reset_index(drop=True)
+        # 날짜 오름차순 정렬 (동일 날짜는 입력 순서 유지)
+        df = df.sort_values(by='Date', kind='stable').reset_index(drop=True)
         return df
     else:
         df = pd.DataFrame(columns=['Date', 'Account', 'Category', 'Amount', 'Type', 'Memo'])
@@ -726,11 +730,14 @@ with tab_dashboard:
         st.markdown("<h2>📑 상세 내역 표</h2>", unsafe_allow_html=True)
         
         display_df = filtered_df.copy()
+        # 인덱스 내림차순(최신 입력순)으로 먼저 정렬 후, 날짜 내림차순(안정 정렬) 정렬
+        display_df = display_df.sort_index(ascending=False).sort_values(by='Date', ascending=False, kind='stable')
+            
         display_df['Date'] = display_df['Date'].dt.strftime('%Y-%m-%d')
         display_df = display_df[['Date', 'Account', 'Category', 'Amount', 'Type', 'Memo']]
         
         st.dataframe(
-            display_df.sort_values(by='Date', ascending=False), 
+            display_df, 
             width="stretch"
         )
         
@@ -745,14 +752,14 @@ with tab_dashboard:
         
         # 전체 데이터 중 최근 20개 거래 추출 (가장 최신 것이 위로 오게 정렬)
         df_sorted_raw = df.copy()
+        # 인덱스 내림차순(최신 입력순)으로 먼저 정렬 후, 날짜 내림차순(안정 정렬) 정렬
+        df_sorted_raw = df_sorted_raw.sort_index(ascending=False).sort_values(by='Date', ascending=False, kind='stable')
+            
         df_sorted_raw['Date_Str'] = df_sorted_raw['Date'].dt.strftime('%Y-%m-%d')
         df_sorted_raw['display'] = df_sorted_raw.apply(
             lambda r: f"[{r['Date_Str']}] {r['Account']} | {r['Category']} | {r['Amount']:,.0f}원 | {r['Type']} | {r['Memo']}",
             axis=1
         )
-        
-        # 날짜 내림차순 정렬 후 최신 20개
-        df_sorted_raw = df_sorted_raw.sort_values(by='Date', ascending=False)
         recent_txs = df_sorted_raw.head(20)
         
         if not recent_txs.empty:
