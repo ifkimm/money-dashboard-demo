@@ -354,12 +354,7 @@ def load_data():
             else:
                 return pd.DataFrame(columns=['Date', 'Account', 'Category', 'Amount', 'Type', 'Memo'])
         except Exception as e:
-            try:
-                df_empty = pd.DataFrame(columns=['Date', 'Account', 'Category', 'Amount', 'Type', 'Memo'])
-                conn.create(worksheet="Transactions", data=df_empty)
-                return df_empty
-            except Exception as ex:
-                st.error(f"구글 시트 로드 중 에러 발생, 로컬 CSV 백업을 사용합니다: {e} / {ex}")
+            st.sidebar.error(f"구글 시트 로드 중 에러 발생: {e}")
 
     # 2. 로컬 CSV 파일에서 로드 (오프라인 모드)
     st.sidebar.warning("⚠️ 로컬 오프라인 데이터 사용 중")
