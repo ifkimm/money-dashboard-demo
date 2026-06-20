@@ -237,6 +237,17 @@ def get_gsheets_connection():
     except Exception as e:
         return None
 
+# 구글 스프레드시트 URL 가져오기 헬퍼 함수
+def get_spreadsheet_url():
+    try:
+        if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
+            gsheets_conf = st.secrets["connections"]["gsheets"]
+            if "spreadsheet" in gsheets_conf:
+                return gsheets_conf["spreadsheet"]
+    except:
+        pass
+    return None
+
 # 자산 설정 파일(settings.json) 입출력 함수 정의
 SETTINGS_FILE = "settings.json"
 
@@ -390,30 +401,48 @@ with tab_dashboard:
         st.sidebar.markdown("---")
         
         # 날짜 범위 설정을 위해 데이터의 최소/최대 날짜 산출
-        min_date = df['Date'].min().date()
-        max_date = df['Date'].max().date()
-        
-        # 📅 날짜 조회 기간 필터 (st.sidebar.date_input 범위 설정 지원)
+        if not df.empty:
+            min_data_date = df['Date'].min().date()
+            max_data_date = df['Date'].max().date()
+        else:
+            min_data_date = pd.Timestamp.now().date()
+            max_data_date = pd.Timestamp.now().date()
+            
+        # 동일 날짜인 경우 기본 범위를 해당 월의 1일부터 오늘까지로 확장하여 유연성 제공
+        if min_data_date == max_data_date:
+            default_start = min_data_date.replace(day=1)
+            default_end = max_data_date
+        else:
+            default_start = min_data_date
+            default_end = max_data_date
+            
+        # 📅 날짜 조회 기간 필터 (st.sidebar.date_input 범위 설정 지원, min/max 제약 제거)
         selected_date_range = st.sidebar.date_input(
             "조회 기간을 선택하세요:",
-            value=(min_date, max_date),
-            min_value=min_date,
-            max_value=max_date,
+            value=(default_start, default_end),
             key="date_range_picker"
         )
         
-        # 선택 결과 튜플 처리 (사용자가 범위 선택 중일 때 오류 방지 포함)
-        if isinstance(selected_date_range, tuple) and len(selected_date_range) == 2:
-            start_date, end_date = selected_date_range
-            start_date = pd.to_datetime(start_date)
-            end_date = pd.to_datetime(end_date)
-            filtered_df = df[(df['Date'] >= start_date) & (df['Date'] <= end_date)]
-            calculation_date = end_date
+        # 선택 결과 처리 (시작일만 선택되었거나 단일 날짜인 경우 처리 포함)
+        if isinstance(selected_date_range, (tuple, list)):
+            if len(selected_date_range) == 2:
+                start_date, end_date = selected_date_range
+                start_date = pd.to_datetime(start_date)
+                end_date = pd.to_datetime(end_date)
+                filtered_df = df[(df['Date'] >= start_date) & (df['Date'] <= end_date)]
+                calculation_date = end_date
+            elif len(selected_date_range) == 1:
+                start_date = pd.to_datetime(selected_date_range[0])
+                filtered_df = df[df['Date'] >= start_date]
+                calculation_date = start_date
+            else:
+                filtered_df = df.copy()
+                calculation_date = pd.Timestamp.now()
         else:
-            # 시작일만 선택된 경우 시작일 이후의 데이터 조회
-            start_date = pd.to_datetime(selected_date_range[0])
-            filtered_df = df[df['Date'] >= start_date]
-            calculation_date = pd.to_datetime(max_date)
+            # 단일 날짜로 반환된 경우 (isinstance(selected_date_range, datetime.date))
+            start_date = pd.to_datetime(selected_date_range)
+            filtered_df = df[df['Date'] == start_date]
+            calculation_date = start_date
             
         # 대시보드 대제목 배치
         st.markdown("<h2>🏦 자산 현황</h2>", unsafe_allow_html=True)
@@ -729,6 +758,12 @@ with tab_dashboard:
         # ------------------ 상세 데이터 내역 ------------------
         st.markdown("<h2>📑 상세 내역 표</h2>", unsafe_allow_html=True)
         
+        # 구글 스프레드시트 바로가기 제공
+        spreadsheet_url = get_spreadsheet_url()
+        if spreadsheet_url:
+            st.link_button("🟢 구글 스프레드시트 열기 (데이터 원본)", spreadsheet_url)
+            st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
+            
         display_df = filtered_df.copy()
         # 인덱스 내림차순(최신 입력순)으로 먼저 정렬 후, 날짜 내림차순(안정 정렬) 정렬
         display_df = display_df.sort_index(ascending=False).sort_values(by='Date', ascending=False, kind='stable')
