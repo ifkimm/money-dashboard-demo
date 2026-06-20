@@ -395,29 +395,42 @@ with tab_dashboard:
             
         st.sidebar.markdown("---")
         
-        # 날짜 범위 설정을 위해 데이터의 최소/최대 날짜 산출
-        if not df.empty:
-            min_data_date = df['Date'].min().date()
-            max_data_date = df['Date'].max().date()
-        else:
-            min_data_date = pd.Timestamp.now().date()
-            max_data_date = pd.Timestamp.now().date()
+        # ------------------ 사이드바 필터 폼 ------------------
+        with st.sidebar.form("filter_form"):
+            # 날짜 범위 설정을 위해 데이터의 최소/최대 날짜 산출
+            if not df.empty:
+                min_data_date = df['Date'].min().date()
+                max_data_date = df['Date'].max().date()
+            else:
+                min_data_date = pd.Timestamp.now().date()
+                max_data_date = pd.Timestamp.now().date()
+                
+            # 동일 날짜인 경우 기본 범위를 해당 월의 1일부터 오늘까지로 확장하여 유연성 제공
+            if min_data_date == max_data_date:
+                default_start = min_data_date.replace(day=1)
+                default_end = max_data_date
+            else:
+                default_start = min_data_date
+                default_end = max_data_date
+                
+            # 📅 날짜 조회 기간 필터 (min/max 제약 제거)
+            selected_date_range = st.date_input(
+                "조회 기간을 선택하세요:",
+                value=(default_start, default_end),
+                key="date_range_picker"
+            )
             
-        # 동일 날짜인 경우 기본 범위를 해당 월의 1일부터 오늘까지로 확장하여 유연성 제공
-        if min_data_date == max_data_date:
-            default_start = min_data_date.replace(day=1)
-            default_end = max_data_date
-        else:
-            default_start = min_data_date
-            default_end = max_data_date
+            # 카테고리 필터 생성
+            ALL_CATEGORIES = [
+                "전체", "급여", "이자", "기타 수입",
+                "식비", "카페/디저트", "교통비", "쇼핑", "옷/의류",
+                "주거비", "문화생활", "의료/건강", "구독료", "교육비", "생활용품", "경조사비", "기타 지출"
+            ]
+            selected_category = st.selectbox("카테고리를 선택하세요:", ALL_CATEGORIES)
             
-        # 📅 날짜 조회 기간 필터 (st.sidebar.date_input 범위 설정 지원, min/max 제약 제거)
-        selected_date_range = st.sidebar.date_input(
-            "조회 기간을 선택하세요:",
-            value=(default_start, default_end),
-            key="date_range_picker"
-        )
-        
+            # 조회하기 제출 버튼
+            filter_submitted = st.form_submit_button("조회하기", type="primary")
+            
         # 선택 결과 처리 (시작일만 선택되었거나 단일 날짜인 경우 처리 포함)
         if isinstance(selected_date_range, (tuple, list)):
             if len(selected_date_range) == 2:
@@ -467,15 +480,7 @@ with tab_dashboard:
         
         st.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
 
-        # 2. 카테고리 필터 생성 (사이드바 - 상시 전체 목록 노출)
-        ALL_CATEGORIES = [
-            "전체", "급여", "이자", "기타 수입",
-            "식비", "카페/디저트", "교통비", "쇼핑", "옷/의류",
-            "주거비", "문화생활", "의료/건강", "구독료", "교육비", "생활용품", "경조사비", "기타 지출"
-        ]
-        selected_category = st.sidebar.selectbox("카테고리를 선택하세요:", ALL_CATEGORIES)
-        
-        # 선택된 카테고리 데이터 필터링
+        # 선택된 카테고리 데이터 필터링 (2단계)
         if selected_category != "전체":
             filtered_df = filtered_df[filtered_df['Category'] == selected_category]
 
